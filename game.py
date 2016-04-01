@@ -35,7 +35,7 @@ class Entry(object):
         self.turn_angle(math.pi / 4)
     def turn_180(self):
         self.turn_angle(math.pi)
-    def turn_angle(self, theta, sigma=0.00001):
+    def turn_angle(self, theta, sigma=0.001):
         theta += random.gauss(0, sigma)
         dx = self.dx * math.cos(theta) - self.dy * math.sin(theta)
         dy = self.dx * math.sin(theta) + self.dy * math.cos(theta)
@@ -75,6 +75,40 @@ class Shepherd(Entry):
     def action(self, arena):
         self.turn_random()
         self.x += 0.00005
+
+NEVER = 123456
+def predict_meet_sheep(e, s,max_t=20, min_t=0):
+    if collision(e, s):
+        t = 0
+    else:
+        t = (e.x - s.x) / (e.dx * e.speed - s.dx * s.speed)
+    if t < max_t and t >= min_t:
+        return t
+    return NEVER
+
+def predict_meet_goat(e, g, max_t=20, min_t=0): 
+    if collision(e, s):
+        t = 0
+    else:
+        cx, cy = g.x - g.dy * GOAT_CIRCLE_RADIUS, g.y + g.dx * GOAT_CIRCLE_RADIUS 
+        if e.dy != 0:
+            k = e.dx / e.dy
+            l = e.x - e.dy * k
+            m = l - cx
+            a = k * k + 1
+            b = 2 * k * m - 2 * cy
+            c = m * m + cy * 2 - GOAT_CIRCLE_RADIUS * GOAT_CIRCLE_RADIUS
+
+            delta = b * b - 4 * a * c
+            if delta < 0:
+                return NEVER
+
+    if t < max_t and t >= min_t:
+        return t
+    return NEVER
+
+    
+    
 
 class Arena(object):
     IN_ARENA = 0
@@ -122,6 +156,7 @@ class Arena(object):
             for j in xrange(i + 1, len(self.entries)):
                 if (self.entries[i].x - self.entries[j].x) ** 2 + (self.entries[i].y - self.entries[j].y) ** 2 <= (self.entries[i].radius + self.entries[j].radius) ** 2:
                     ei, ej = self.entries[i], self.entries[j]
+                    print 'collision'
                     if (ej.x - ei.x) * ei.dx + (ej.y - ei.y) * ei.dy > 0:
                         self.entries[i].collision()
                     if (ei.x - ej.x) * ej.dx + (ei.y - ej.y) * ej.dy > 0:
@@ -140,6 +175,8 @@ class Arena(object):
             for sheep in self.sheeps:
                 sheep.turn_180()
         self.shepherd.action(self)
+    def fast_forward(self):
+        pass
 
 class Monitor(object):
     def __init__(self, scale=30):
