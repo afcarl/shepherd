@@ -77,38 +77,67 @@ class Shepherd(Entry):
         self.x += 0.00005
 
 NEVER = 123456
-def predict_meet_sheep(e, s,max_t=20, min_t=0):
-    if collision(e, s):
-        t = 0
-    else:
-        t = (e.x - s.x) / (e.dx * e.speed - s.dx * s.speed)
-    if t < max_t and t >= min_t:
-        return t
-    return NEVER
+def predict_meet_linear(ex, ey, evx, evy, sx, sy, svx, svy, min_t=0, max_t=20):
+    x, y = ex - sx, ey - sy
+    vx, vy = evx - svx, evy - svy
+    a = vx * vx + vy * vy
+    b = 2 * (x * vx + y * vy)
+    c = x * x + y * y
 
-def predict_meet_goat(e, g, max_t=20, min_t=0): 
-    if collision(e, s):
-        t = 0
-    else:
-        cx, cy = g.x - g.dy * GOAT_CIRCLE_RADIUS, g.y + g.dx * GOAT_CIRCLE_RADIUS 
-        if e.dy != 0:
-            k = e.dx / e.dy
-            l = e.x - e.dy * k
-            m = l - cx
-            a = k * k + 1
-            b = 2 * k * m - 2 * cy
-            c = m * m + cy * 2 - GOAT_CIRCLE_RADIUS * GOAT_CIRCLE_RADIUS
-
-            delta = b * b - 4 * a * c
-            if delta < 0:
-                return NEVER
-
-    if t < max_t and t >= min_t:
-        return t
-    return NEVER
+    delta = b * b - 4 * a * c
+    if delta < 0:
+        return NEVER
+    ta, tb = -b / 2 / a, math.sqrt(delta) / 2 / a
+    t1, t2 = ta - tb, ta + tb
+    if t1 <= min_t:
+        return min_t
+    return t1
 
     
+def predict_meet_sheep(e, s,min_t=0, max_t=20):
+    return predict_meet_linear(e.x, e.y, e.dx * e.speed, e.dy * e.speed, s.x, s.y, s.vx * s.speed,
+        s.vy * s.speed, min_t, max_t)
+
+def angle(dx, dy):
+    r = math.sqrt(dx * dx + dy * dy)
+    theta = math.acos(dx / r)
+    if dy < 0:
+        theta = 2 * math.pi - theta
+    return theta
+
+# TODO
+def arc_to_line(cx, cy, radius, speed, cur_ang, to_ang):
+    d_ang = to_ang - cur_ang
+    if d_ang < 0:
+        d_ang += 2 * math.pi
+    t = d_angle / speed * radius
+    vx = math.cos(cur_ang)
+    vy = math.sin(cur_ang)
+    ox, oy = cx + vx * radius, cy + vy * radius
+
+    vx, vy = vy, -vx
+    return ox - vx * t, oy - vy * t, vx, vy
+def predict_circle_meet(ex, ey, evx, evy, cx, cy, radius, from_ang, to_ang, speed):
+    x, y, vx, vy = arc_to_line(cx, cy, GOAT_CIRCLE_RADIUS, g.speed, cur_ang, theta)
+    return predict_meet_linear(e.x, e.y, e.dx * e.speed, e.dy * e.speed,
+        x, y, vx, vy, min_t, max_t)
     
+def predict_meet_goat(e, g, min_t=0, max_t=20): 
+    cx, cy = g.x - g.dy * GOAT_CIRCLE_RADIUS, g.y + g.dx * GOAT_CIRCLE_RADIUS 
+    evx, evy = e.dx * e.speed, e.dy * e.speed
+
+    vx, vy = -evy, evx
+    if (e.x - cx) * vx + (e.y - cy) * vy < 0:
+        vx, vy = -vx, -vy
+    theta = angle(vx, vy)
+    
+    cur_ang = angle(g.x - cx, g.y - cy)
+    d = ((e.x - cx) * vx + (e.y - cy) * vy) / math.sqrt(vx * vx + vy * vy)
+    if d >= GOAT_CIRCLE_RADIUS:
+        return predict_circle_meet(e.x, e.y, e.dx * e.speed, e.dy * e.speed, GOAT_CIRCLE_RADIUS, cur_ang, theta, g.speed)
+    delta_theta = math.acos(d / GOAT_CIRCLE_RADIUS)
+    return min(predict_circle_meet(e.x, e.y, e.dx * e.speed, e.dy * e.speed, GOAT_CIRCLE_RADIUS, cur_ang, theta - delta_theta, g.speed),
+    predict_circle_meet(e.x, e.y, e.dx * e.speed, e.dy * e.speed, GOAT_CIRCLE_RADIUS, cur_ang, theta+ delta_theta, g.speed))
 
 class Arena(object):
     IN_ARENA = 0
