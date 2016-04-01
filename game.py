@@ -9,7 +9,7 @@ SHEEP_SPEED = 0.33
 SHEPHERD_H_SPEED = 2.5
 SHEPHERD_UP_TIME = 1
 SHEPHERD_DOWN_TIME = 1
-
+SHEEP_START_CIRCLE_RADIUS = 1
 GOAT_CIRCLE_RADIUS = 5
 
 STAGE_TIME = 20
@@ -40,7 +40,6 @@ class Entry(object):
         dy = self.dx * math.sin(theta) + self.dy * math.cos(theta)
         norm = math.sqrt(dx * dx + dy * dy)
         self.dx, self.dy = dx / norm, dy / norm
-        print math.sqrt(self.dx ** 2 + self.dy ** 2)
     def turn_random(self):
         vx, vy = random.random() - 0.5, random.random() - 0.5
         norm = math.sqrt(vx * vx + vy * vy)
@@ -72,6 +71,9 @@ class Shepherd(Entry):
         self.radius = SHEPHERD_RADIUS
     def collision(self):
         pass
+    def action(self, arena):
+        self.turn_random()
+        self.x += 0.00005
 
 class Arena(object):
     def __init__(self):
@@ -89,25 +91,27 @@ class Arena(object):
         for i in xrange(len(self.entries)):
             for j in xrange(i + 1, len(self.entries)):
                 if (self.entries[i].x - self.entries[j].x) ** 2 + (self.entries[i].y - self.entries[j].y) ** 2 <= (self.entries[i].radius + self.entries[j].radius) ** 2:
-                    self.entries[i].collision()
-                    self.entries[j].collision()
+                    ei, ej = self.entries[i], self.entries[j]
+                    if (ej.x - ei.x) * ei.dx + (ej.y - ei.y) * ei.dy > 0:
+                        self.entries[i].collision()
+                    if (ei.x - ej.x) * ej.dx + (ei.y - ej.y) * ej.dy > 0:
+                        self.entries[j].collision()
     def time_fly(self, seconds):
         self.time += seconds
         stage = int(self.time / STAGE_TIME)
         for entry in self.entries:
             entry.move(seconds)
         self.handle_collision()
-        print seconds
-        print SHEEP_SPEED / GOAT_CIRCLE_RADIUS * seconds
         for goat in self.goats:
             goat.turn_angle(SHEEP_SPEED / GOAT_CIRCLE_RADIUS * seconds)
         if stage > self.stage:
             self.stage = stage
             for sheep in self.sheeps:
                 sheep.turn_180()
+        self.shepherd.action(self)
 
 class Monitor(object):
-    def __init__(self, scale=50):
+    def __init__(self, scale=30):
         self.scale = scale
         self.root = Tkinter.Tk()
         scale = self.scale
@@ -119,6 +123,9 @@ class Monitor(object):
     def update(self, arena):
         self.canvas.delete(Tkinter.ALL)
         s = self.scale
+        self.canvas.create_line(0, 3, ARENA_WIDTH * s, 3, fill='green', width=3)
+        self.canvas.create_line(0, ARENA_HEIGHT * s + 1, ARENA_WIDTH * s, ARENA_HEIGHT * s + 1, fill='red', width=3)
+        self.canvas.create_line(0, ARENA_HEIGHT * s / 2, ARENA_WIDTH * s, ARENA_HEIGHT * s / 2, fill='white', width=3)
         d = ANIMAL_RADIUS * s 
         for goat in arena.goats:
             self.canvas.create_oval(s * goat.x - d, s * goat.y - d, s * goat.x + d, s * goat.y + d, fill='red')
@@ -132,16 +139,21 @@ class Monitor(object):
 if __name__ == '__main__':
     arena = Arena()
     for i in xrange(NUM_SHEEP):
-        sheep = Sheep(random.random() * ARENA_WIDTH, random.random() * ARENA_HEIGHT, 1, 1)
-        sheep.turn_random()
+        angle = 2 * math.pi / NUM_SHEEP * i
+        dx = SHEEP_START_CIRCLE_RADIUS * math.cos(angle)
+        dy = SHEEP_START_CIRCLE_RADIUS * math.sin(angle)
+        x, y = ARENA_WIDTH / 2 + dx, ARENA_WIDTH / 2 + dy
+        sheep = Sheep(x, y, dx, dy)
         arena.entries.append(sheep)
         arena.sheeps.append(sheep)
     for i in xrange(NUM_GOAT):
-        goat = Goat(random.random() * ARENA_WIDTH, random.random() * ARENA_HEIGHT, 1, 1)
-        goat.turn_random()
+        angle = 2 * math.pi / NUM_GOAT * i
+        dx = GOAT_CIRCLE_RADIUS * math.cos(angle)
+        dy = GOAT_CIRCLE_RADIUS * math.sin(angle)
+        goat = Goat(ARENA_WIDTH / 2 + dx, ARENA_WIDTH / 2 + dy, -dy, dx)
         arena.entries.append(goat)
         arena.goats.append(goat)
-    shepherd = Shepherd(random.random() * ARENA_WIDTH, random.random() * ARENA_HEIGHT, 1, 1)
+    shepherd = Shepherd(0, 0.5 * ARENA_HEIGHT, 1, 0)
     shepherd.turn_random()
     arena.entries.append(shepherd)
     arena.shepherd = shepherd
@@ -150,12 +162,12 @@ if __name__ == '__main__':
 
     start_time = time.time()
     now = start_time
+    watch_speed = 20.0
     while True:
         previous = now
         now = time.time()
-        time.sleep(0.0001)
-        if now - start_time >= MAX_TIME:
+        if (now - start_time) * watch_speed >= MAX_TIME:
             sys.exit(0)
         delta_time = now - previous
-        arena.time_fly(delta_time * 10)
+        arena.time_fly(delta_time * watch_speed)
         monitor.update(arena)
