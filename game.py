@@ -14,8 +14,8 @@ GOAT_CIRCLE_RADIUS = 5
 
 STAGE_TIME = 20
 
-ARENA_WIDTH = 200
-ARENA_HEIGHT = 200
+ARENA_WIDTH = 20
+ARENA_HEIGHT = 20
 half_sqrt_2 = 0.5 * math.sqrt(2)
 
 ANIMAL_RADIUS = 0.3
@@ -107,7 +107,7 @@ class Arena(object):
                 sheep.turn_180()
 
 class Monitor(object):
-    def __init__(self, scale=5):
+    def __init__(self, scale=50):
         self.scale = scale
         self.root = Tkinter.Tk()
         scale = self.scale
@@ -119,7 +119,7 @@ class Monitor(object):
     def update(self, arena):
         self.canvas.delete(Tkinter.ALL)
         s = self.scale
-        d = ANIMAL_RADIUS * s * 10
+        d = ANIMAL_RADIUS * s 
         for goat in arena.goats:
             self.canvas.create_oval(s * goat.x - d, s * goat.y - d, s * goat.x + d, s * goat.y + d, fill='red')
         for sheep in arena.sheeps:
