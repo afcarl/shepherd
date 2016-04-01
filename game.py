@@ -24,7 +24,6 @@ SHEPHERD_RADIUS = 0.5
 NUM_SHEEP = 10
 NUM_GOAT = 4
 class Entry(object):
-    half_sqrt_2 = 0.5 * math.sqrt(2)
     def __init__(self, x, y, dx, dy, speed):
         self.x, self.y = x, y
         norm = math.sqrt(dx * dx + dy * dy)
@@ -33,10 +32,12 @@ class Entry(object):
     def turn_45(self):
         self.dx = self.dx * half_sqrt_2 - self.dy * half_sqrt_2
         self.vy = self.dx * half_sqrt_2 + self.dy * half_sqrt_2
+        self.turn_angle(math.pi / 4)
     def turn_180(self):
-        self.dx, self.dy = -self.dx, -self.dy
-    def turn_angle(self, theta):
-        dx  = self.dx * math.cos(theta) - self.dy * math.sin(theta)
+        self.turn_angle(math.pi)
+    def turn_angle(self, theta, sigma=0.00001):
+        theta += random.gauss(0, sigma)
+        dx = self.dx * math.cos(theta) - self.dy * math.sin(theta)
         dy = self.dx * math.sin(theta) + self.dy * math.cos(theta)
         norm = math.sqrt(dx * dx + dy * dy)
         self.dx, self.dy = dx / norm, dy / norm
@@ -76,6 +77,11 @@ class Shepherd(Entry):
         self.x += 0.00005
 
 class Arena(object):
+    IN_ARENA = 0
+    OUT_HOME = 1
+    OUT_OTHER = 2
+    IN_HOME = 3
+    OUT_WILD = 4
     def __init__(self):
         self.entries = []
         self.goats = []
@@ -86,7 +92,31 @@ class Arena(object):
         self.groud_sheep = 0
         self.stage = 0
         self.time = 0
+    def out_of_arena(self, entry):
+        if entry.y > ARENA_HEIGHT:
+            return Arena.OUT_WILD
+        if entry.y < 0:
+            return Arena.IN_HOME
+        if entry.x > ARENA_WIDTH or entry.x < 0:
+            return Arena.OUT_OTHER
+        return Arena.IN_ARENA
 
+    def handle_out(self):
+        no_out = True
+        for i, e in enumerate(self.entries):
+            if self.out_of_arena(e) != Arena.IN_ARENA:
+                self.entries.pop(i)
+                no_out = False
+        if no_out:
+            return
+        for i, e in enumerate(self.sheeps):
+            status = self.out_of_arena(e)
+            if status != Arena.IN_ARENA:
+                self.sheeps.pop(i)
+                if status == Arena.OUT_WILD:
+                    self.n_wild_sheep += 1
+                elif status == Arena.IN_HOME:
+                    self.n_home_sheep += 1
     def handle_collision(self):
         for i in xrange(len(self.entries)):
             for j in xrange(i + 1, len(self.entries)):
@@ -101,6 +131,7 @@ class Arena(object):
         stage = int(self.time / STAGE_TIME)
         for entry in self.entries:
             entry.move(seconds)
+        self.handle_out()
         self.handle_collision()
         for goat in self.goats:
             goat.turn_angle(SHEEP_SPEED / GOAT_CIRCLE_RADIUS * seconds)
